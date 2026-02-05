@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auralis - World Model Agent Simulation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🌍 AURALIS</h1>
+            <p class="subtitle">World Model Agent Simulation Platform</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <button id="createBtn" class="btn btn-primary">Create Simulation</button>
+                <button id="startBtn" class="btn btn-success" disabled>Start</button>
+                <button id="stopBtn" class="btn btn-warning" disabled>Stop</button>
+                <button id="stepBtn" class="btn btn-secondary" disabled>Step</button>
+                <button id="resetBtn" class="btn btn-danger">Reset</button>
+            </div>
+            
+            <div class="status-indicator">
+                <span class="status-label">Status:</span>
+                <span id="statusText" class="status-text">Not Started</span>
+                <span class="status-dot" id="statusDot"></span>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- World State Panel -->
+            <div class="panel">
+                <h2>🌍 World State</h2>
+                <div class="world-stats">
+                    <div class="stat">
+                        <span class="stat-label">Time Step:</span>
+                        <span id="timeStep" class="stat-value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Market Price:</span>
+                        <span id="marketPrice" class="stat-value">$100.00</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Volatility:</span>
+                        <span id="volatility" class="stat-value">10.0%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Active Agents:</span>
+                        <span id="numAgents" class="stat-value">0</span>
+                    </div>
+                </div>
+                
+                <!-- Price Chart -->
+                <div class="chart-container">
+                    <h3>Market Price History</h3>
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Agents Panel -->
+            <div class="panel">
+                <h2>🤖 Agents</h2>
+                <div id="agentsList" class="agents-list">
+                    <p class="empty-state">No agents yet. Create a simulation to begin.</p>
+                </div>
+            </div>
+
+            <!-- Events Panel -->
+            <div class="panel full-width">
+                <h2>📊 Recent Events</h2>
+                <div id="eventsList" class="events-list">
+                    <p class="empty-state">No events yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>Auralis v1.0 | Autonomous Agent Simulation | No real value - demonstration only</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
