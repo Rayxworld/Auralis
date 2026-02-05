@@ -3,89 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auralis - World Model Agent Simulation</title>
+    <title>Auralis Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <header>
-            <h1>🌍 AURALIS</h1>
-            <p class="subtitle">World Model Agent Simulation Platform</p>
+            <h1>Auralis Simulation Dashboard</h1>
         </header>
 
-        <!-- Controls -->
-        <div class="controls">
-            <div class="control-group">
-                <button id="createBtn" class="btn btn-primary">Create Simulation</button>
-                <button id="startBtn" class="btn btn-success" disabled>Start</button>
-                <button id="stopBtn" class="btn btn-warning" disabled>Stop</button>
-                <button id="stepBtn" class="btn btn-secondary" disabled>Step</button>
-                <button id="resetBtn" class="btn btn-danger">Reset</button>
-            </div>
-            
-            <div class="status-indicator">
-                <span class="status-label">Status:</span>
-                <span id="statusText" class="status-text">Not Started</span>
-                <span class="status-dot" id="statusDot"></span>
-            </div>
+        <!-- Controls + quick market status -->
+        <div class="top-row">
+            <section id="controls">
+                <button onclick="createSimulation()">Create Simulation</button>
+                <button onclick="startSimulation()">Start</button>
+                <button onclick="stopSimulation()">Stop</button>
+                <button onclick="stepSimulation(1)">Step Once</button>
+                <button onclick="stepSimulation(5)">Step 5×</button>
+                <button onclick="resetSimulation()">Reset</button>
+            </section>
+
+            <section id="quick-status">
+                <h3>Current Market</h3>
+                <div id="market-price">Price: —</div>
+                <div id="market-volatility">Volatility: —</div>
+            </section>
         </div>
 
-        <!-- Main Grid -->
-        <div class="main-grid">
-            <!-- World State Panel -->
-            <div class="panel">
-                <h2>🌍 World State</h2>
-                <div class="world-stats">
-                    <div class="stat">
-                        <span class="stat-label">Time Step:</span>
-                        <span id="timeStep" class="stat-value">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Market Price:</span>
-                        <span id="marketPrice" class="stat-value">$100.00</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Volatility:</span>
-                        <span id="volatility" class="stat-value">10.0%</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Active Agents:</span>
-                        <span id="numAgents" class="stat-value">0</span>
-                    </div>
-                </div>
-                
-                <!-- Price Chart -->
-                <div class="chart-container">
-                    <h3>Market Price History</h3>
-                    <canvas id="priceChart"></canvas>
-                </div>
+        <!-- Price Chart -->
+        <section id="price-chart">
+            <h2>Market Price History</h2>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
             </div>
+        </section>
 
-            <!-- Agents Panel -->
-            <div class="panel">
-                <h2>🤖 Agents</h2>
-                <div id="agentsList" class="agents-list">
-                    <p class="empty-state">No agents yet. Create a simulation to begin.</p>
+        <!-- Agents + Events side by side -->
+        <div class="bottom-row">
+            <section id="agents">
+                <h2>Agents</h2>
+                <div class="scroll-table">
+                    <table id="agents-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Balance</th>
+                                <th>Holdings</th>
+                                <th>Portfolio</th>
+                                <th>P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
-            </div>
+            </section>
 
-            <!-- Events Panel -->
-            <div class="panel full-width">
-                <h2>📊 Recent Events</h2>
-                <div id="eventsList" class="events-list">
-                    <p class="empty-state">No events yet.</p>
+            <section id="events">
+                <h2>Recent Events</h2>
+                <div class="scroll-box" id="events-box">
+                    <ul id="events-list"></ul>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <!-- Footer -->
-        <footer>
-            <p>Auralis v1.0 | Autonomous Agent Simulation | No real value - demonstration only</p>
-        </footer>
+        <!-- Optional debug area (can be hidden) -->
+        <pre id="state-output" style="display: none;"></pre>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

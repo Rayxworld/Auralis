@@ -1,445 +1,205 @@
-/**
- * Auralis Dashboard - Main Application
- */
+const API_URL = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000/ws';
 
-const API_BASE = 'http://localhost:8000';
+const MAX_EVENTS_SHOWN = 80;
+const MAX_CHART_POINTS = 60;
 
-// State
+let ws = null;
 let priceChart = null;
-let wsConnection = null;
-let priceHistory = [];
+let priceData = {
+    labels: [],
+    datasets: [{
+        label: 'Market Price',
+        data: [],
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1,
+        fill: false
+    }]
+};
 
-// DOM Elements
-const createBtn = document.getElementById('createBtn');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const stepBtn = document.getElementById('stepBtn');
-const resetBtn = document.getElementById('resetBtn');
-const statusText = document.getElementById('statusText');
-const statusDot = document.getElementById('statusDot');
+function initWebSocket() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => console.log('WebSocket connected');
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'step' || data.type === 'auto_step') {
+                updateDashboard(data.data);
+            }
+        } catch (err) {
+            console.error('WebSocket message parse error:', err);
+        }
+    };
+    ws.onclose = () => {
+        console.log('WebSocket closed – reconnecting...');
+        setTimeout(initWebSocket, 1500);
+    };
+    ws.onerror = (err) => console.error('WebSocket error:', err);
+}
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🌍 Auralis Dashboard Loaded');
-    
-    // Setup event listeners
-    createBtn.addEventListener('click', createSimulation);
-    startBtn.addEventListener('click', startSimulation);
-    stopBtn.addEventListener('click', stopSimulation);
-    stepBtn.addEventListener('click', stepSimulation);
-    resetBtn.addEventListener('click', resetSimulation);
-    
-    // Initialize chart
-    initChart();
-    
-    // Connect WebSocket
-    connectWebSocket();
-});
-
-/**
- * Initialize the price chart
- */
 function initChart() {
     const ctx = document.getElementById('priceChart').getContext('2d');
-    
     priceChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Market Price',
-                data: [],
-                borderColor: '#667eea',
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true
-            }]
-        },
+        data: priceData,
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
             scales: {
-                x: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Time Step'
-                    }
-                },
-                y: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Price ($)'
-                    }
-                }
+                x: { display: true, title: { display: true, text: 'Time Step' } },
+                y: { beginAtZero: false, title: { display: true, text: 'Price' } }
+            },
+            plugins: {
+                legend: { display: true, position: 'top' }
             }
         }
     });
 }
 
-/**
- * Connect to WebSocket for real-time updates
- */
-function connectWebSocket() {
-    wsConnection = new WebSocket(`ws://localhost:8000/ws`);
-    
-    wsConnection.onopen = () => {
-        console.log('✅ WebSocket connected');
-    };
-    
-    wsConnection.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'step' || data.type === 'auto_step') {
-            handleSimulationUpdate(data.data);
-        }
-    };
-    
-    wsConnection.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-    };
-    
-    wsConnection.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
-        // Attempt to reconnect after 3 seconds
-        setTimeout(connectWebSocket, 3000);
-    };
+function updateQuickStatus(state) {
+    const priceEl = document.getElementById('market-price');
+    const volEl = document.getElementById('market-volatility');
+    if (priceEl) priceEl.textContent = `Price: $${(state.market_price || 0).toFixed(2)}`;
+    if (volEl) volEl.textContent = `Volatility: ${((state.volatility || 0) * 100).toFixed(1)}%`;
 }
 
-/**
- * Create a new simulation
- */
+function updateDashboard(stepData) {
+    const stateEl = document.getElementById('state-output');
+    if (stateEl) stateEl.textContent = JSON.stringify(stepData.state, null, 2);
+
+    // Chart
+    priceData.labels.push(stepData.time);
+    priceData.datasets[0].data.push(stepData.state.market_price);
+
+    if (priceData.labels.length > MAX_CHART_POINTS) {
+        priceData.labels.shift();
+        priceData.datasets[0].data.shift();
+    }
+    if (priceChart) priceChart.update();
+
+    updateQuickStatus(stepData.state);
+
+    // Events
+    const eventsList = document.getElementById('events-list');
+    if (eventsList) {
+        stepData.actions.forEach(action => {
+            const li = document.createElement('li');
+            const time = stepData.time ?? '—';
+            const resultStr = action.result?.success === false 
+                ? `FAILED: ${action.result.reason || '—'}`
+                : JSON.stringify(action.result).slice(0, 120);
+            li.textContent = `[${time}] ${action.agent} → ${action.action.type}  ${resultStr}`;
+            if (action.action.type === 'trade') li.style.fontWeight = 'bold';
+            eventsList.appendChild(li);
+        });
+
+        while (eventsList.children.length > MAX_EVENTS_SHOWN) {
+            eventsList.removeChild(eventsList.firstChild);
+        }
+
+        const box = document.getElementById('events-box') || eventsList.parentElement;
+        if (box) box.scrollTop = box.scrollHeight;
+    }
+
+    getAgents();
+}
+
 async function createSimulation() {
     try {
-        updateStatus('Creating...', 'stopped');
-        
-        const response = await fetch(`${API_BASE}/simulation/create`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                num_agents: 5,
-                agent_types: ['cautious', 'aggressive', 'trend', 'aggressive', 'cautious'],
-                initial_balance: 100
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === 'created') {
-            updateStatus('Ready', 'stopped');
-            startBtn.disabled = false;
-            stepBtn.disabled = false;
-            
-            // Update world state
-            updateWorldState(data.world);
-            
-            // Display agents
-            displayAgents(data.agents);
-            
-            // Reset chart
-            priceHistory = [];
-            updateChart(data.world.time, data.world.market_price);
-            
-            showNotification('✅ Simulation created successfully!');
-        }
-        
-    } catch (error) {
-        console.error('Error creating simulation:', error);
-        showNotification('❌ Failed to create simulation', 'error');
-        updateStatus('Error', 'stopped');
+        const res = await fetch(`${API_URL}/simulation/create`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        updateDashboard({ state: data.world, time: 0, actions: [] });
+        getAgents();
+    } catch (err) {
+        console.error('Create failed:', err);
+        alert('Failed to create simulation');
     }
 }
 
-/**
- * Start the simulation
- */
 async function startSimulation() {
     try {
-        const response = await fetch(`${API_BASE}/simulation/start`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === 'started') {
-            updateStatus('Running', 'running');
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            stepBtn.disabled = true;
-            createBtn.disabled = true;
-            
-            showNotification('▶️ Simulation started!');
-        }
-        
-    } catch (error) {
-        console.error('Error starting simulation:', error);
-        showNotification('❌ Failed to start simulation', 'error');
+        const res = await fetch(`${API_URL}/simulation/start`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+        console.error('Start failed:', err);
     }
 }
 
-/**
- * Stop the simulation
- */
 async function stopSimulation() {
     try {
-        const response = await fetch(`${API_BASE}/simulation/stop`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === 'stopped') {
-            updateStatus('Paused', 'stopped');
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            stepBtn.disabled = false;
-            createBtn.disabled = false;
-            
-            showNotification('⏸️ Simulation paused');
-        }
-        
-    } catch (error) {
-        console.error('Error stopping simulation:', error);
-        showNotification('❌ Failed to stop simulation', 'error');
+        const res = await fetch(`${API_URL}/simulation/stop`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+        console.error('Stop failed:', err);
     }
 }
 
-/**
- * Step the simulation manually
- */
-async function stepSimulation() {
+async function stepSimulation(steps = 1) {
     try {
-        const response = await fetch(`${API_BASE}/simulation/step?steps=1`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === 'success' && data.results.length > 0) {
-            const result = data.results[0];
-            handleSimulationUpdate(result);
-        }
-        
-    } catch (error) {
-        console.error('Error stepping simulation:', error);
-        showNotification('❌ Failed to step simulation', 'error');
+        const res = await fetch(`${API_URL}/simulation/step?steps=${steps}`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        data.results.forEach(updateDashboard);
+    } catch (err) {
+        console.error('Step failed:', err);
     }
 }
 
-/**
- * Reset the simulation
- */
 async function resetSimulation() {
     try {
-        const response = await fetch(`${API_BASE}/simulation/reset`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === 'reset') {
-            updateStatus('Not Started', '');
-            startBtn.disabled = true;
-            stopBtn.disabled = true;
-            stepBtn.disabled = true;
-            createBtn.disabled = false;
-            
-            // Clear UI
-            document.getElementById('agentsList').innerHTML = '<p class="empty-state">No agents yet. Create a simulation to begin.</p>';
-            document.getElementById('eventsList').innerHTML = '<p class="empty-state">No events yet.</p>';
-            
-            // Reset world stats
-            document.getElementById('timeStep').textContent = '0';
-            document.getElementById('marketPrice').textContent = '$100.00';
-            document.getElementById('volatility').textContent = '10.0%';
-            document.getElementById('numAgents').textContent = '0';
-            
-            // Clear chart
-            priceHistory = [];
-            priceChart.data.labels = [];
-            priceChart.data.datasets[0].data = [];
-            priceChart.update();
-            
-            showNotification('🔄 Simulation reset');
+        await fetch(`${API_URL}/simulation/reset`, { method: 'POST' });
+        if (document.getElementById('state-output')) {
+            document.getElementById('state-output').textContent = '';
         }
-        
-    } catch (error) {
-        console.error('Error resetting simulation:', error);
-        showNotification('❌ Failed to reset simulation', 'error');
+        priceData.labels = [];
+        priceData.datasets[0].data = [];
+        if (priceChart) priceChart.update();
+
+        const tbody = document.getElementById('agents-table')?.tBodies[0];
+        if (tbody) tbody.innerHTML = '';
+
+        const eventsList = document.getElementById('events-list');
+        if (eventsList) eventsList.innerHTML = '';
+
+        document.getElementById('market-price')?.textContent = 'Price: —';
+        document.getElementById('market-volatility')?.textContent = 'Volatility: —';
+    } catch (err) {
+        console.error('Reset failed:', err);
     }
 }
 
-/**
- * Handle simulation update from WebSocket or manual step
- */
-function handleSimulationUpdate(data) {
-    updateWorldState(data.state);
-    updateChart(data.time, data.state.market_price);
-    updateEvents(data.actions);
-    
-    // Refresh agents periodically
-    if (data.time % 5 === 0) {
-        refreshAgents();
-    }
-}
-
-/**
- * Update world state display
- */
-function updateWorldState(state) {
-    document.getElementById('timeStep').textContent = state.time;
-    document.getElementById('marketPrice').textContent = `$${state.market_price.toFixed(2)}`;
-    document.getElementById('volatility').textContent = `${(state.volatility * 100).toFixed(1)}%`;
-    document.getElementById('numAgents').textContent = state.num_agents;
-}
-
-/**
- * Update price chart
- */
-function updateChart(time, price) {
-    priceHistory.push({ time, price });
-    
-    // Keep last 50 points
-    if (priceHistory.length > 50) {
-        priceHistory.shift();
-    }
-    
-    priceChart.data.labels = priceHistory.map(p => p.time);
-    priceChart.data.datasets[0].data = priceHistory.map(p => p.price);
-    priceChart.update('none'); // Update without animation for performance
-}
-
-/**
- * Display agents
- */
-function displayAgents(agents) {
-    const agentsList = document.getElementById('agentsList');
-    agentsList.innerHTML = '';
-    
-    agents.forEach(agent => {
-        const agentCard = createAgentCard(agent);
-        agentsList.appendChild(agentCard);
-    });
-}
-
-/**
- * Create agent card element
- */
-function createAgentCard(agent) {
-    const card = document.createElement('div');
-    const strategy = agent.personality?.strategy || 'simple';
-    card.className = `agent-card ${strategy}`;
-    
-    const portfolioValue = agent.portfolio_value || agent.balance;
-    const profitLoss = agent.profit_loss || 0;
-    const profitClass = profitLoss >= 0 ? 'profit-positive' : 'profit-negative';
-    
-    card.innerHTML = `
-        <div class="agent-header">
-            <span class="agent-name">${agent.name}</span>
-            <span class="agent-strategy">${strategy}</span>
-        </div>
-        <div class="agent-stats">
-            <div class="agent-stat">Balance: <strong>$${agent.balance.toFixed(2)}</strong></div>
-            <div class="agent-stat">Holdings: <strong>${agent.holdings.toFixed(4)}</strong></div>
-            <div class="agent-stat">Portfolio: <strong>$${portfolioValue.toFixed(2)}</strong></div>
-            <div class="agent-stat">P/L: <strong class="${profitClass}">${profitLoss >= 0 ? '+' : ''}$${profitLoss.toFixed(2)}</strong></div>
-            <div class="agent-stat">Actions: <strong>${agent.action_count}</strong></div>
-            <div class="agent-stat">Success: <strong>${(agent.success_rate * 100).toFixed(1)}%</strong></div>
-        </div>
-    `;
-    
-    return card;
-}
-
-/**
- * Refresh agents data
- */
-async function refreshAgents() {
+async function getAgents() {
     try {
-        const response = await fetch(`${API_BASE}/simulation/agents`);
-        const data = await response.json();
-        
-        if (data.agents) {
-            displayAgents(data.agents);
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing agents:', error);
+        const res = await fetch(`${API_URL}/simulation/agents`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('agents-table')?.tBodies[0];
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        data.agents.forEach(agent => {
+            const tr = document.createElement('tr');
+            const pl = agent.profit_loss || 0;
+            tr.innerHTML = `
+                <td>${agent.name}</td>
+                <td>$${Number(agent.balance || 0).toFixed(2)}</td>
+                <td>${Number(agent.holdings || 0).toFixed(4)}</td>
+                <td>$${Number(agent.portfolio_value || 0).toFixed(2)}</td>
+                <td style="color: ${pl >= 0 ? 'green' : 'red'}">
+                    $${pl.toFixed(2)}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error('Get agents failed:', err);
     }
 }
 
-/**
- * Update events list
- */
-function updateEvents(actions) {
-    const eventsList = document.getElementById('eventsList');
-    
-    // Clear empty state
-    if (eventsList.querySelector('.empty-state')) {
-        eventsList.innerHTML = '';
-    }
-    
-    actions.forEach(actionData => {
-        const action = actionData.action;
-        const result = actionData.result;
-        
-        const eventItem = document.createElement('div');
-        eventItem.className = 'event-item';
-        
-        let details = '';
-        if (action.type === 'trade') {
-            details = `${action.direction} $${action.amount.toFixed(2)} @ $${result.price?.toFixed(2) || '?'}`;
-        } else if (action.type === 'communicate') {
-            details = action.message;
-        } else if (action.type === 'observe') {
-            details = 'Observing market';
-        }
-        
-        eventItem.innerHTML = `
-            <span class="event-time">T-${action.time}</span>
-            <div class="event-content">
-                <span class="event-type">${actionData.agent}:</span>
-                <span class="event-details">${details}</span>
-            </div>
-            <span class="event-badge ${action.type}">${action.type}</span>
-        `;
-        
-        // Add to top
-        eventsList.insertBefore(eventItem, eventsList.firstChild);
-        
-        // Keep max 20 events visible
-        while (eventsList.children.length > 20) {
-            eventsList.removeChild(eventsList.lastChild);
-        }
-    });
-}
-
-/**
- * Update status indicator
- */
-function updateStatus(text, state) {
-    statusText.textContent = text;
-    statusDot.className = 'status-dot';
-    
-    if (state) {
-        statusDot.classList.add(state);
-    }
-}
-
-/**
- * Show notification (simple alert for now)
- */
-function showNotification(message, type = 'info') {
-    console.log(message);
-    // Could implement a toast notification system here
-}
+document.addEventListener('DOMContentLoaded', () => {
+    initWebSocket();
+    initChart();
+    // Optional periodic refresh
+    setInterval(getAgents, 5000);
+});
