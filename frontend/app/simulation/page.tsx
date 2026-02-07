@@ -24,6 +24,7 @@ function SimulationContent() {
   const [loading, setLoading] = useState(true)
   const [isJoining, setIsJoining] = useState(false)
   const [newAgent, setNewAgent] = useState({ name: '', type: 'simple', balance: 100 })
+  const [showGuide, setShowGuide] = useState(true)
 
   // Real-time updates via WebSocket
   const { connected } = useAuralisSocket((message) => {
@@ -50,7 +51,7 @@ function SimulationContent() {
       }
 
       // Re-fetch agents periodically for detailed metrics
-      fetchAgents()
+      if (data.time % 5 === 0) fetchAgents()
     }
   })
 
@@ -138,11 +139,85 @@ function SimulationContent() {
   }
 
   return (
-    <div className="container mx-auto px-6 py-12 pb-32">
+    <div className="container mx-auto px-6 py-12 pb-32 relative">
+      {/* Simulation Guide Overlay */}
+      <AnimatePresence>
+        {showGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="max-w-2xl w-full bg-gray-900 border border-indigo-500/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500" />
+              <button 
+                onClick={() => setShowGuide(false)}
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <div className="w-4 h-4 text-gray-400">✕</div>
+              </button>
+
+              <h2 className="text-3xl font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
+                <span className="text-indigo-400">👋</span> Welcome, Creator!
+              </h2>
+              
+              <div className="space-y-6 text-gray-300">
+                <p>You've entered a <strong>Persistent Simulation</strong>. Here's how to interact:</p>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2 text-indigo-400 font-bold">
+                      <TrendingUp className="w-4 h-4" />
+                      <span>Market Dynamics</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Watch the price chart. Agents buy/sell based on this price. High volatility means wilder price swings!</p>
+                  </div>
+                  
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2 text-purple-400 font-bold">
+                      <Users className="w-4 h-4" />
+                      <span>Agents</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Autonomous entities that trade and gather resources. They have different personalities (Aggressive, Cautious, etc.).</p>
+                  </div>
+
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2 text-green-400 font-bold">
+                      <Zap className="w-4 h-4" />
+                      <span>Live Feed</span>
+                    </div>
+                    <p className="text-xs text-gray-400">See actions in real-time. "Ticks" represent time steps. The world runs even when you're not looking!</p>
+                  </div>
+
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2 text-pink-400 font-bold">
+                      <Plus className="w-4 h-4" />
+                      <span>Join In</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Deploy your own agent! Choose a personality and watch it compete against the others.</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <button 
+                    onClick={() => setShowGuide(false)}
+                    className="px-8 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-widest text-xs transition-all"
+                  >
+                    Got it, Let's Sim!
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
         <div className="flex items-center space-x-6">
-          <div className="w-12 h-12 md:w-16 md:h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
-            <Globe className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center relative overflow-hidden group">
+            <div className="absolute inset-0 bg-indigo-500/20 blur-xl group-hover:bg-indigo-500/30 transition-colors" />
+            <Globe className="w-6 h-6 md:w-8 md:h-8 text-indigo-400 relative z-10" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-1">
@@ -150,7 +225,7 @@ function SimulationContent() {
               <div className={`px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest ${
                 world.running ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
               }`}>
-                {world.running ? 'Active' : 'Paused'}
+                {world.running ? 'Active Simulation' : 'Simulation Paused'}
               </div>
             </div>
             <div className="flex items-center space-x-4 text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -162,6 +237,10 @@ function SimulationContent() {
                 <Activity className="w-3 h-3 text-indigo-500" />
                 <span>ID: {worldId}</span>
               </div>
+              <button onClick={() => setShowGuide(true)} className="flex items-center space-x-1 text-indigo-400 hover:text-white transition-colors">
+                <Info className="w-3 h-3" />
+                <span>Help</span>
+              </button>
             </div>
           </div>
         </div>
@@ -175,7 +254,7 @@ function SimulationContent() {
                 : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-indigo-500/20'
             }`}
           >
-            {world.running ? <><Square className="w-4 h-4" /><span>Stop Sim</span></> : <><Play className="w-4 h-4" /><span>Resume Sim</span></>}
+            {world.running ? <><Square className="w-4 h-4" /><span>Pause Sim</span></> : <><Play className="w-4 h-4" /><span>Resume Sim</span></>}
           </button>
           <div className={`p-4 rounded-2xl border ${connected ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
             <Zap className={`w-4 h-4 md:w-5 md:h-5 ${connected ? 'text-green-500 animate-pulse' : 'text-red-500'}`} />
@@ -187,32 +266,35 @@ function SimulationContent() {
         <div className="lg:col-span-8 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Price', val: `$${world.state.market_price.toFixed(2)}`, color: 'text-indigo-400', icon: <TrendingUp className="w-4 h-4" /> },
-              { label: 'Volatility', val: `${(world.state.volatility * 100).toFixed(1)}%`, color: 'text-purple-400', icon: <Activity className="w-4 h-4" /> },
-              { label: 'Resources', val: world.state.resources, color: 'text-green-400', icon: <Box className="w-4 h-4" /> },
-              { label: 'Population', val: agents.length, color: 'text-pink-400', icon: <Users className="w-4 h-4" /> },
+              { label: 'Price', val: `$${world.state.market_price.toFixed(2)}`, color: 'text-indigo-400', icon: <TrendingUp className="w-4 h-4" />, help: 'Current global asset price' },
+              { label: 'Volatility', val: `${(world.state.volatility * 100).toFixed(1)}%`, color: 'text-purple-400', icon: <Activity className="w-4 h-4" />, help: 'How much price fluctuates' },
+              { label: 'Resources', val: world.state.resources, color: 'text-green-400', icon: <Box className="w-4 h-4" />, help: 'Total materials available' },
+              { label: 'Population', val: agents.length, color: 'text-pink-400', icon: <Users className="w-4 h-4" />, help: 'Active autonomous agents' },
             ].map((stat, i) => (
               <motion.div 
                 key={stat.label}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="glass-card p-6 border-white/5"
+                className="glass-card p-6 border-white/5 group relative overflow-hidden"
               >
                 <div className="flex items-center space-x-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">
                   <span className={stat.color}>{stat.icon}</span>
                   <span>{stat.label}</span>
                 </div>
                 <div className={`text-2xl font-black tracking-tighter ${stat.color}`}>{stat.val}</div>
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2">
+                   <div className="text-[9px] text-gray-400">{stat.help}</div>
+                </div>
               </motion.div>
             ))}
           </div>
 
-          <div className="glass-card p-4 md:p-8 min-h-[400px]">
+          <div className="glass-card p-4 md:p-8 min-h-[400px] relative">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-lg md:text-xl font-black uppercase tracking-tighter">Market Dynamics</h3>
               <div className="flex items-center space-x-2 bg-black/40 px-3 py-1 rounded-full border border-white/5">
-                <BarChart3 className="w-3 h-3 text-indigo-500" />
+                <BarChart3 className="w-3 h-3 text-indigo-500 animate-pulse" />
                 <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Feed</span>
               </div>
             </div>
@@ -252,17 +334,19 @@ function SimulationContent() {
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          <div className="glass-card p-6 md:p-8">
+          <div className="glass-card p-6 md:p-8 relative overflow-hidden">
+             <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full pointer-events-none" />
             <h3 className="text-xl font-black uppercase tracking-tighter mb-6 flex items-center space-x-2">
               <Plus className="w-5 h-5 text-indigo-500" />
               <span>Deploy Agent</span>
             </h3>
+            <p className="text-xs text-gray-400 mb-4">Launch a new autonomous entity into the simulation. It will trade effectively immediately.</p>
             <form onSubmit={handleJoin} className="space-y-4">
               <input 
                 required
                 type="text" 
-                placeholder="Agent Name"
-                className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-5 text-sm text-white focus:outline-none focus:border-indigo-500/50"
+                placeholder="Agent Name (e.g. Neo)"
+                className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-5 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
                 value={newAgent.name}
                 onChange={e => setNewAgent({...newAgent, name: e.target.value})}
               />
@@ -280,34 +364,43 @@ function SimulationContent() {
                 <button 
                   type="submit"
                   disabled={isJoining}
-                  className="bg-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all disabled:opacity-50 flex items-center justify-center p-3"
+                  className="bg-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all disabled:opacity-50 flex items-center justify-center p-3 shadow-lg shadow-indigo-500/20"
                 >
-                  {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join'}
+                  {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Launch'}
                 </button>
               </div>
-              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center">Fee: {world.config.entry_fee} MON</p>
+              <div className="flex items-center justify-center gap-2 text-[9px] text-gray-500 font-bold uppercase tracking-widest">
+                <span>Fee: {world.config.entry_fee} MON</span>
+                <span className="w-1 h-1 bg-gray-600 rounded-full" />
+                <span>Instant Entry</span>
+              </div>
             </form>
           </div>
 
           <div className="glass-card p-6 md:p-8 flex flex-col h-[500px]">
             <h3 className="text-xl font-black uppercase tracking-tighter mb-6 flex items-center space-x-2">
               <MessageSquare className="w-5 h-5 text-purple-500" />
-              <span>World Feed</span>
+              <span>World Events</span>
             </h3>
             <div className="flex-grow overflow-y-auto space-y-4 pr-2 scrollbar-none">
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} mode="popLayout">
                 {events.map((event) => (
                   <motion.div 
                     key={event.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="p-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors"
+                    initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="p-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors relative overflow-hidden"
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                        event.type === 'buy' ? 'bg-green-500' : 
+                        event.type === 'sell' ? 'bg-red-500' : 'bg-gray-500'
+                    }`} />
+                    <div className="flex items-center justify-between mb-1 pl-2">
                       <span className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">{event.agent}</span>
                       <span className="text-[9px] text-gray-500 font-mono">T-{event.time}</span>
                     </div>
-                    <p className="text-xs text-gray-400 font-medium">{event.desc}</p>
+                    <p className="text-xs text-gray-400 font-medium pl-2">{event.desc}</p>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -319,14 +412,17 @@ function SimulationContent() {
       <section className="mt-12">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">Active Participants</h2>
-          <div className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-bold text-gray-500 border border-white/10 uppercase tracking-widest">
-            {agents.length} Entities
+          <div className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-bold text-gray-500 border border-white/10 uppercase tracking-widest flex items-center gap-2">
+             <Users className="w-3 h-3" />
+            {agents.length} Entities Online
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {agents.map((agent) => (
-            <AgentCard key={agent.name} agent={agent} />
-          ))}
+          <AnimatePresence>
+            {agents.map((agent) => (
+              <AgentCard key={agent.name} agent={agent} />
+            ))}
+          </AnimatePresence>
         </div>
       </section>
     </div>
