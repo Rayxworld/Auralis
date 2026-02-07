@@ -1,14 +1,14 @@
-'use client'
-
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { auralisApi, World } from '@/lib/api'
+import { connectWallet, switchToMonadTestnet } from '@/lib/wallet'
 
 export default function Navigation() {
   const pathname = usePathname()
   const [worlds, setWorlds] = useState<World[]>([])
   const [marketPrice, setMarketPrice] = useState(100.0)
+  const [account, setAccount] = useState<string | null>(null)
   
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +29,14 @@ export default function Navigation() {
     const interval = setInterval(fetchData, 5000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleConnect = async () => {
+    const address = await connectWallet()
+    if (address) {
+      setAccount(address)
+      await switchToMonadTestnet()
+    }
+  }
   
   const activeCount = worlds.filter(w => w.running).length
 
@@ -88,9 +96,12 @@ export default function Navigation() {
             ))}
             
             <div className="ml-4 pl-4 border-l border-white/10">
-              <button className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
+              <button 
+                onClick={handleConnect}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+              >
                 <span>🪙</span>
-                <span>Connect</span>
+                <span>{account ? `${account.slice(0,6)}...${account.slice(-4)}` : 'Connect'}</span>
               </button>
             </div>
           </div>

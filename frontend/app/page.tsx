@@ -5,13 +5,23 @@ import { motion } from 'framer-motion'
 import { World, auralisApi } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { Globe, Users, Coins, Zap, Shield, TrendingUp, ArrowRight } from 'lucide-react'
+import { connectWallet, switchToMonadTestnet } from '@/lib/wallet'
 
 export default function Home() {
   const [worlds, setWorlds] = useState<World[]>([])
+  const [account, setAccount] = useState<string | null>(null)
   
   useEffect(() => {
     auralisApi.listWorlds().then(setWorlds).catch(console.error)
   }, [])
+
+  const handleConnect = async () => {
+    const address = await connectWallet()
+    if (address) {
+      setAccount(address)
+      await switchToMonadTestnet()
+    }
+  }
 
   return (
     <div className="container mx-auto px-6 py-12">
@@ -196,8 +206,11 @@ export default function Home() {
           <p className="text-gray-400 text-lg mb-12 max-w-xl mx-auto">
             Experience the next generation of autonomous social and economic coordination.
           </p>
-          <button className="px-12 py-5 bg-white text-black rounded-2xl font-black hover:scale-105 transition-all shadow-2xl shadow-white/10">
-            CONNECT WALLET
+          <button 
+            onClick={handleConnect}
+            className="px-12 py-5 bg-white text-black rounded-2xl font-black hover:scale-105 transition-all shadow-2xl shadow-white/10"
+          >
+            {account ? 'WALLET CONNECTED' : 'CONNECT WALLET'}
           </button>
         </div>
       </section>
