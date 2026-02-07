@@ -9,12 +9,9 @@ from datetime import datetime
 import sys
 import os
 
-# Ensure we can import from api
+# Ensure we can import from root
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api.blockchain import get_blockchain_logger
-
-
-from .blockchain import get_blockchain_logger
+from blockchain import get_blockchain_logger
 
 class World:
     """
