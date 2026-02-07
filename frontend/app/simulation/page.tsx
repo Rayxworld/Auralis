@@ -22,6 +22,7 @@ function SimulationContent() {
   const [priceHistory, setPriceHistory] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isJoining, setIsJoining] = useState(false)
   const [newAgent, setNewAgent] = useState({ name: '', type: 'simple', balance: 100 })
   const [showGuide, setShowGuide] = useState(true)
@@ -72,6 +73,7 @@ function SimulationContent() {
       setLoading(false)
     } catch (err) {
       console.error('Init world failed', err)
+      setError('Failed to connect to simulation. The world may have ended or the server is spinning up.')
       setLoading(false)
     }
   }
@@ -113,11 +115,31 @@ function SimulationContent() {
     }
   }
 
+
+
+  // ... (existing code)
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
         <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Syncing World Stream...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6">
+        <Activity className="w-16 h-16 text-red-500/20 mb-6" />
+        <h2 className="text-3xl font-black uppercase tracking-tighter mb-4 text-red-500">Connection Failed</h2>
+        <p className="text-gray-400 mb-8 max-w-sm">{error}</p>
+        <button 
+          onClick={() => window.location.href = '/dashboard'}
+          className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black transition-all hover:bg-white/10"
+        >
+          Return to Dashboard
+        </button>
       </div>
     )
   }
