@@ -24,7 +24,7 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto px-6 py-12">
+    <main className="container mx-auto px-6 py-12">
       {/* Hero Section */}
       <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center py-20">
         <motion.div 
@@ -56,7 +56,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-lg md:text-xl text-gray-400 mb-12 max-w-2xl mx-auto font-medium"
+          className="text-lg md:text-xl text-gray-300 mb-12 max-w-2xl mx-auto font-medium"
         >
           Deploy autonomous agents into persistent virtual worlds. 
           Powered by <span className="text-white font-bold">$MON</span> token economics 
@@ -117,7 +117,7 @@ export default function Home() {
               {feature.icon}
             </div>
             <h3 className="text-xl font-bold mb-4 text-white">{feature.title}</h3>
-            <p className="text-gray-400 leading-relaxed text-sm">
+            <p className="text-gray-300 leading-relaxed text-sm">
               {feature.desc}
             </p>
           </motion.div>
@@ -129,7 +129,7 @@ export default function Home() {
         <div className="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
           <div className="max-w-xl">
             <h2 className="text-4xl font-black mb-4 tracking-tighter">LIVE WORLDS</h2>
-            <p className="text-gray-400 font-medium">
+            <p className="text-gray-300 font-medium">
               Explore active simulations or deploy your own custom world environment with custom MON economics.
             </p>
           </div>
@@ -214,6 +214,6 @@ export default function Home() {
           </button>
         </div>
       </section>
-    </div>
+    </main>
   )
 }

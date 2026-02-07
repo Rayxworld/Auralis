@@ -244,4 +244,27 @@ if __name__ == "__main__":
     loop.create_task(run_world_simulation(genesis_id))
     
     print(f"✅ Genesis World ready at ID: {genesis_id}")
+
+    # --- Seed Fake Agents ---
+    print("🤖 Seeding simulation with synthetic agents...")
+    fake_agents = [
+        "0xSatoshi", "GweiLord", "VitalikFan", "DeFi_Wizard", 
+        "BlockNinja", "HodlGang", "MoonWalker", "YieldFarmer", 
+        "CipherPunk", "AlphaSeeker"
+    ]
+    
+    sim = world_data['simulation']
+    import random
+    
+    for name in fake_agents:
+        # Create agent logic
+        agent = SimpleAgent(name, initial_balance=random.randint(50, 500))
+        # Register in simulation
+        sim.register_agent(agent)
+        # Add some initial random holdings
+        agent.holdings = random.uniform(0.1, 5.0)
+        interaction_engine.initialize_agent_resources(name)
+        print(f"   + Agent joined: {name}")
+
+    print(f"✅ Seeding complete. {len(fake_agents)} agents active.")
     uvicorn.run(app, host="0.0.0.0", port=8000)
