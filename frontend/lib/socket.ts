@@ -14,7 +14,7 @@ export function useAuralisSocket(onMessage?: (data: any) => void) {
   useEffect(() => {
     // Use API_BASE_URL to determine WebSocket URL
     // Replace http:// with ws:// and https:// with wss://
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
     const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
     const socket = new WebSocket(wsUrl);
 

@@ -28,7 +28,7 @@ class World:
             'volatility': 0.1
         }
         self.history = []
-        self.blockchain = get_blockchain_logger(mock_mode=False) # Try real mode
+        self.blockchain = get_blockchain_logger(mock_mode=True) # Default to mock mode for stability
         
     def register_agent(self, agent):
         """Register an agent in the world."""
