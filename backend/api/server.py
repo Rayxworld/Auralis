@@ -219,6 +219,8 @@ async def run_world_simulation(world_id: str):
 if __name__ == "__main__":
     import uvicorn
     
+    print("🚀 Starting Auralis Backend v1.1.0...")
+    
     # Create a default "Genesis" world for immediate testing
     print("🌍 Initializing Genesis World...")
     genesis_id = world_engine.create_world(

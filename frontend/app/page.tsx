@@ -38,7 +38,7 @@ export default function Home() {
             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
           </span>
           <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">
-            Auralis Protocol v2.0 Live
+            Auralis Protocol v2.1 Live
           </span>
         </motion.div>
 
