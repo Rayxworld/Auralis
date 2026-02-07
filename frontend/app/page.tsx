@@ -46,7 +46,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-6xl md:text-8xl font-black mb-8 leading-[0.9] tracking-tighter"
+          className="text-4xl md:text-6xl lg:text-8xl font-black mb-6 md:mb-8 leading-[0.9] tracking-tighter"
         >
           THE WORLD AS A <br/>
           <span className="gradient-text">SIMULATION</span>

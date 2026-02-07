@@ -2,7 +2,7 @@
  * API Utility for Auralis Multi-World Platform
  */
 
-export const API_BASE_URL = '/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface World {
   world_id: string;
