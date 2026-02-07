@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { auralisApi, World, Agent } from '@/lib/api'
 import { useAuralisSocket } from '@/lib/socket'
 import AgentCard from '@/components/AgentCard'
+import {
+  Zap, Disc, Activity, Clock, TrendingUp, Users,
+  ChevronRight, Box, MessageSquare, Plus, Loader2, Play, Square,
   BarChart3, Globe, Info
 } from 'lucide-react'
 
