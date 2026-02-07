@@ -6,7 +6,15 @@ Manages time progression, agent registration, and event resolution.
 import json
 from typing import List, Dict, Any
 from datetime import datetime
+import sys
+import os
 
+# Ensure we can import from api
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api.blockchain import get_blockchain_logger
+
+
+from .blockchain import get_blockchain_logger
 
 class World:
     """
@@ -23,6 +31,7 @@ class World:
             'volatility': 0.1
         }
         self.history = []
+        self.blockchain = get_blockchain_logger(mock_mode=False) # Try real mode
         
     def register_agent(self, agent):
         """Register an agent in the world."""
@@ -161,6 +170,17 @@ class World:
             'action': action,
             'result': result
         })
+        
+        # Log to Blockchain (Monad Testnet)
+        if self.blockchain and self.blockchain.is_enabled():
+            tx_hash = self.blockchain.log_action(
+                agent_id=agent_name,
+                action_type=action_type,
+                action_data=action,
+                world_time=self.time
+            )
+            if tx_hash:
+                result['tx_hash'] = tx_hash
         
         return result
     

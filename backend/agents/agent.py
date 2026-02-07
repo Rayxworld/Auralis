@@ -351,3 +351,140 @@ class TrendFollowerAgent(Agent):
             'type': 'observe',
             'time': world.time
         }
+
+
+class AIEnhancedAgent(Agent):
+    """
+    An AI-enhanced agent that uses local LLM (Ollama) for decision-making.
+    Falls back to rule-based logic if AI is unavailable.
+    """
+    
+    def __init__(self, name: str, personality: Dict[str, Any] = None, initial_balance: float = 100):
+        if personality is None:
+            personality = {
+                'risk_tolerance': 0.6,
+                'confidence_threshold': 0.5,
+                'strategy': 'ai_enhanced'
+            }
+        
+        super().__init__(name, personality, initial_balance)
+        self.price_history = []
+        
+        # Try to import AI reasoner
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from ai_reasoner import get_ai_reasoner
+            self.ai_reasoner = get_ai_reasoner()
+            self.ai_available = self.ai_reasoner.available
+        except Exception as e:
+            print(f"⚠️  AI reasoner not available for {self.name}: {e}")
+            self.ai_reasoner = None
+            self.ai_available = False
+    
+    def predict(self, observation: Dict[str, Any]) -> Dict[str, Any]:
+        """Use AI to predict market movement if available."""
+        price = observation.get('market_price', 100)
+        self.price_history.append(price)
+        
+        if len(self.price_history) > 20:
+            self.price_history = self.price_history[-20:]
+        
+        # Try AI prediction
+        if self.ai_available and self.ai_reasoner:
+            try:
+                history = [{'market_price': p} for p in self.price_history]
+                ai_prediction = self.ai_reasoner.predict_market(observation, history)
+                
+                if ai_prediction:
+                    return ai_prediction
+            except:
+                pass
+        
+        # Fallback to rule-based prediction
+        if len(self.price_history) >= 2:
+            if self.price_history[-1] > self.price_history[-2]:
+                direction = 'up'
+            else:
+                direction = 'down'
+        else:
+            direction = 'stable'
+        
+        return {
+            'direction': direction,
+            'confidence': 0.5,
+            'magnitude': 0.1
+        }
+    
+    def decide(self, world) -> Dict[str, Any]:
+        """Use AI to decide action if available, otherwise use rules."""
+        observation = self.observe(world)
+        
+        # Try AI decision
+        if self.ai_available and self.ai_reasoner:
+            try:
+                # Build memory context
+                memory_text = []
+                for mem in self.memory[-10:]:
+                    if mem['type'] == 'action_result':
+                        action_type = mem['action'].get('type', 'unknown')
+                        success = mem['result'].get('success', False)
+                        memory_text.append(f"{action_type}: {'✓' if success else '✗'}")
+                
+                ai_action = self.ai_reasoner.reason_about_world(
+                    self.personality,
+                    observation,
+                    memory_text
+                )
+                
+                if ai_action:
+                    # Convert AI action to world action format
+                    action_type = ai_action.get('action', 'observe')
+                    
+                    action = {
+                        'agent': self.name,
+                        'type': action_type,
+                        'time': world.time,
+                        'ai_reasoning': ai_action.get('reasoning', ''),
+                        'ai_confidence': ai_action.get('confidence', 0.5)
+                    }
+                    
+                    if action_type == 'trade':
+                        action['direction'] = ai_action.get('direction', 'buy')
+                        action['amount'] = min(ai_action.get('amount', 5), self.balance * 0.3)
+                    
+                    elif action_type == 'communicate':
+                        action['message'] = ai_action.get('reasoning', 'AI agent communicating')
+                        action['target'] = 'all'
+                    
+                    return action
+            except Exception as e:
+                print(f"AI decision failed for {self.name}: {e}")
+        
+        # Fallback to rule-based decision
+        prediction = self.predict(observation)
+        
+        if prediction['direction'] == 'up' and self.balance > 5:
+            return {
+                'agent': self.name,
+                'type': 'trade',
+                'direction': 'buy',
+                'amount': min(self.balance * 0.2, 10),
+                'time': world.time
+            }
+        
+        elif prediction['direction'] == 'down' and self.holdings > 0:
+            return {
+                'agent': self.name,
+                'type': 'trade',
+                'direction': 'sell',
+                'amount': self.holdings * 0.3,
+                'time': world.time
+            }
+        
+        return {
+            'agent': self.name,
+            'type': 'observe',
+            'time': world.time
+        }

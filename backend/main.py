@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from world.world import World
-from agents.agent import SimpleAgent, CautiousAgent, AggressiveAgent, TrendFollowerAgent
+from agents.agent import SimpleAgent, CautiousAgent, AggressiveAgent, TrendFollowerAgent, AIEnhancedAgent
 import json
 from datetime import datetime
 
@@ -45,6 +45,7 @@ def run_simulation(num_steps: int = 20, save_results: bool = True):
         AggressiveAgent("Aggressive-Alice", initial_balance=100),
         TrendFollowerAgent("Trend-Tom", initial_balance=100),
         AggressiveAgent("Aggressive-Bob", initial_balance=100),
+        AIEnhancedAgent("AI-Agent-1", initial_balance=100),  # New AI agent
     ]
     
     print("🤖 Registering agents:")

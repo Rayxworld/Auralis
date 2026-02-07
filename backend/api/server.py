@@ -1,6 +1,6 @@
 """
 FastAPI server for Auralis.
-Provides REST API endpoints for the frontend dashboard.
+Provides REST API endpoints for the multi-world simulation platform.
 """
 
 import sys
@@ -9,17 +9,20 @@ import os
 # Add backend folder to sys.path so relative imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from world.world import World
 from agents.agent import SimpleAgent, CautiousAgent, AggressiveAgent, TrendFollowerAgent
+from world_engine import world_engine
+from interaction_engine import interaction_engine
 
 import json
 import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 
-app = FastAPI(title="Auralis API", version="1.0.0")
+app = FastAPI(title="Auralis API", version="2.0.0")
 
 # CORS middleware for frontend (allows localhost access)
 app.add_middleware(
@@ -30,194 +33,153 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global simulation state
-simulation_state = {
-    'world': None,
-    'running': False,
-    'step_delay': 1.0  # seconds between auto steps
-}
-
 # Active WebSocket connections
 active_connections: List[WebSocket] = []
 
+class WorldCreate(BaseModel):
+    name: str
+    creator: str
+    entry_fee: float
+    max_agents: Optional[int] = 100
+    config: Optional[Dict[str, Any]] = None
 
 async def broadcast_update(data: Dict[str, Any]):
     """Broadcast updates to all connected WebSocket clients safely."""
-    # Make a copy to avoid modification during iteration
     for connection in active_connections[:]:
         try:
             await connection.send_json(data)
         except Exception:
-            # Safely remove only if still present
             if connection in active_connections:
                 active_connections.remove(connection)
-
 
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "Auralis API Server", "status": "running"}
+    return {"message": "Auralis Multi-World API Server", "status": "running"}
 
+# --- World Management ---
 
-@app.post("/simulation/create")
-async def create_simulation(config: Dict[str, Any] = None):
-    if config is None:
-        config = {}
-
+@app.post("/worlds/create")
+async def create_world(data: WorldCreate):
+    world_id = world_engine.create_world(
+        name=data.name,
+        creator=data.creator,
+        entry_fee=data.entry_fee,
+        max_agents=data.max_agents,
+        rules=data.config
+    )
+    
+    # Initialize simulation for this world
     world = World(initial_state={
         'resources': 1000,
         'market_price': 100,
-        'volatility': 0.1
+        'volatility': 0.1,
+        **(data.config or {})
     })
+    
+    world_data = world_engine.get_world(world_id)
+    world_data['simulation'] = world
+    
+    return {"world_id": world_id, "status": "created"}
 
-    num_agents = config.get('num_agents', 5)
-    agent_types = config.get('agent_types', ['cautious', 'aggressive', 'trend'])
-    initial_balance = config.get('initial_balance', 100)
+@app.get("/worlds")
+async def list_worlds():
+    return {"worlds": world_engine.list_worlds()}
 
-    agent_classes = {
-        'simple': SimpleAgent,
-        'cautious': CautiousAgent,
-        'aggressive': AggressiveAgent,
-        'trend': TrendFollowerAgent
-    }
-
-    created_agents = []
-    for i in range(num_agents):
-        agent_type = agent_types[i % len(agent_types)]
-        agent_class = agent_classes.get(agent_type, SimpleAgent)
-
-        agent = agent_class(f"{agent_type.capitalize()}-{i+1}", initial_balance=initial_balance)
-        world.register_agent(agent)
-        created_agents.append(agent.to_dict())
-
-    simulation_state['world'] = world
-    simulation_state['running'] = False
-
+@app.get("/worlds/{world_id}")
+async def get_world_details(world_id: str):
+    world = world_engine.get_world(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+    
     return {
-        "status": "created",
-        "world": world.get_public_state(),
-        "agents": created_agents
+        "config": world['config'],
+        "state": world_engine.get_world_state(world_id),
+        "running": world['running']
     }
 
+# --- Simulation Control ---
 
-@app.post("/simulation/start")
-async def start_simulation():
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created. Call /simulation/create first"}
+@app.post("/worlds/{world_id}/start")
+async def start_world_simulation(world_id: str):
+    world = world_engine.get_world(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+    
+    if not world['running']:
+        world['running'] = True
+        asyncio.create_task(run_world_simulation(world_id))
+    
+    return {"status": "started", "world_id": world_id}
 
-    simulation_state['running'] = True
-    asyncio.create_task(auto_step())
+@app.post("/worlds/{world_id}/stop")
+async def stop_world_simulation(world_id: str):
+    world = world_engine.get_world(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+    
+    world['running'] = False
+    return {"status": "stopped", "world_id": world_id}
 
-    return {"status": "started", "time": simulation_state['world'].time}
+# --- Agent Interaction ---
 
-
-@app.post("/simulation/stop")
-async def stop_simulation():
-    simulation_state['running'] = False
-    return {"status": "stopped", "time": simulation_state['world'].time if simulation_state['world'] else 0}
-
-
-@app.post("/simulation/step")
-async def step_simulation(steps: int = 1):
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created"}
-
-    world = simulation_state['world']
-    results = []
-
-    for _ in range(steps):
-        step_actions = world.step()
-        result_data = {
-            'time': world.time,
-            'state': world.get_public_state(),
-            'actions': step_actions
+@app.post("/worlds/{world_id}/join")
+async def join_world(world_id: str, agent_data: Dict[str, Any]):
+    world = world_engine.get_world(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+        
+    agent_id = agent_data.get('name')
+    if not agent_id:
+        raise HTTPException(status_code=400, detail="Agent name required")
+        
+    success = world_engine.agent_enter_world(world_id, agent_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to join world (likely full)")
+        
+    # Register agent in actual simulation if not exists
+    sim = world['simulation']
+    if not any(a.name == agent_id for a in sim.agents):
+        agent_type = agent_data.get('type', 'simple')
+        agent_classes = {
+            'simple': SimpleAgent,
+            'cautious': CautiousAgent,
+            'aggressive': AggressiveAgent,
+            'trend': TrendFollowerAgent
         }
-        results.append(result_data)
+        agent_class = agent_classes.get(agent_type, SimpleAgent)
+        agent = agent_class(agent_id, initial_balance=agent_data.get('balance', 100))
+        sim.register_agent(agent)
+        interaction_engine.initialize_agent_resources(agent_id)
+        
+    return {"status": "joined", "agent_id": agent_id}
 
-        # Broadcast safely
-        try:
-            await broadcast_update({
-                'type': 'step',
-                'data': result_data
-            })
-        except Exception as e:
-            print(f"Broadcast failed during step: {e}")
-
-    return {
-        "status": "success",
-        "steps_executed": steps,
-        "results": results
-    }
-
-
-@app.get("/simulation/state")
-async def get_state():
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created"}
-
-    world = simulation_state['world']
-    return {
-        "time": world.time,
-        "state": world.get_public_state(),
-        "agents": [agent.to_dict() for agent in world.agents],
-        "running": simulation_state['running']
-    }
-
-
-@app.get("/simulation/agents")
-async def get_agents():
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created"}
-
-    world = simulation_state['world']
+@app.get("/worlds/{world_id}/agents")
+async def get_world_agents(world_id: str):
+    world = world_engine.get_world(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+        
+    sim = world['simulation']
     agents_data = []
-
-    for agent in world.agents:
-        portfolio_value = agent.balance + (agent.holdings * world.state['market_price'])
+    
+    for agent in sim.agents:
+        portfolio_value = agent.balance + (agent.holdings * sim.state['market_price'])
         agents_data.append({
             **agent.to_dict(),
             'portfolio_value': portfolio_value,
-            'profit_loss': portfolio_value - 100  # relative to initial 100
+            'profit_loss': portfolio_value - 100,
+            'resources': interaction_engine.get_agent_resources(agent.name)
         })
-
+        
     return {"agents": agents_data}
 
-
-@app.get("/simulation/events")
-async def get_events(limit: int = 50):
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created"}
-
-    world = simulation_state['world']
-    events = world.events[-limit:]
-
-    return {"events": events, "total": len(world.events)}
-
-
-@app.get("/simulation/history")
-async def get_history():
-    if simulation_state['world'] is None:
-        return {"error": "No simulation created"}
-
-    world = simulation_state['world']
-    return {
-        "history": world.history,
-        "total_steps": world.time
-    }
-
-
-@app.post("/simulation/reset")
-async def reset_simulation():
-    simulation_state['world'] = None
-    simulation_state['running'] = False
-    return {"status": "reset"}
-
+# --- WebSocket ---
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_connections.append(websocket)
-
     try:
         while True:
             data = await websocket.receive_text()
@@ -227,32 +189,59 @@ async def websocket_endpoint(websocket: WebSocket):
         if websocket in active_connections:
             active_connections.remove(websocket)
 
+# --- Background Tasks ---
 
-async def auto_step():
-    """Background task to automatically step the simulation."""
-    while simulation_state['running']:
-        if simulation_state['world']:
-            world = simulation_state['world']
-            step_actions = world.step()
-
-            data = {
-                'type': 'auto_step',
-                'data': {
-                    'time': world.time,
-                    'state': world.get_public_state(),
-                    'actions': step_actions
-                }
+async def run_world_simulation(world_id: str):
+    """Background task to run a specific world's simulation."""
+    while True:
+        world = world_engine.get_world(world_id)
+        if not world or not world['running']:
+            break
+            
+        sim = world['simulation']
+        # Advance the world engine state
+        # This already calls sim.step() and updates state
+        world_engine.step_world(world_id)
+        
+        data = {
+            'type': 'world_update',
+            'world_id': world_id,
+            'data': {
+                'time': sim.time,
+                'state': sim.get_public_state(),
+                'agents': [a.name for a in sim.agents]
             }
-
-            # Broadcast safely
-            try:
-                await broadcast_update(data)
-            except Exception as e:
-                print(f"Auto-step broadcast failed (likely closed connection): {e}")
-
-        await asyncio.sleep(simulation_state['step_delay'])
-
+        }
+        
+        await broadcast_update(data)
+        await asyncio.sleep(1.0) # 1 second delay between steps
 
 if __name__ == "__main__":
     import uvicorn
+    
+    # Create a default "Genesis" world for immediate testing
+    print("🌍 Initializing Genesis World...")
+    genesis_id = world_engine.create_world(
+        name="Genesis",
+        creator="Auralis",
+        entry_fee=10.0,
+        max_agents=50,
+        rules={'market_price': 150.0}
+    )
+    
+    world = World(initial_state={
+        'resources': 1000,
+        'market_price': 150.0,
+        'volatility': 0.05
+    })
+    
+    world_data = world_engine.get_world(genesis_id)
+    world_data['simulation'] = world
+    world_data['running'] = True
+    
+    # Start the simulation task for Genesis
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_world_simulation(genesis_id))
+    
+    print(f"✅ Genesis World ready at ID: {genesis_id}")
     uvicorn.run(app, host="0.0.0.0", port=8000)

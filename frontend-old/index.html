@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Auralis - Multi-Agent Simulation Platform with AI Agents and Blockchain Integration">
+    <meta name="keywords" content="AI, Multi-Agent, Simulation, Blockchain, Monad, Web3">
+    <title>Auralis - World Model Agent Simulation</title>
+    
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>🌍 AURALIS</h1>
+        <p>Multi-Agent Simulation Platform · Autonomous AI · Blockchain Verified</p>
+    </section>
+
+    <div class="container">
+        
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <!-- Simulation Controls -->
+            <div class="control-section">
+                <h3>⚙️ Simulation Controls</h3>
+                <div class="button-grid">
+                    <button id="btn-create" class="success" onclick="createSimulation()">Create</button>
+                    <button id="btn-start" onclick="startSimulation()">Start</button>
+                    <button id="btn-stop" class="secondary" onclick="stopSimulation()">Stop</button>
+                    <button id="btn-step" onclick="stepSimulation(1)">Step</button>
+                    <button id="btn-step5" onclick="stepSimulation(5)">Step 5×</button>
+                    <button id="btn-reset" class="secondary" onclick="resetSimulation()">Reset</button>
+                </div>
+            </div>
+
+            <!-- World Status -->
+            <div class="control-section">
+                <h3>🌍 World Status</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-label">Time Step</div>
+                        <div class="status-value" id="world-time">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Market Price</div>
+                        <div class="status-value" id="market-price">$0.00</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Volatility</div>
+                        <div class="status-value" id="market-volatility">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blockchain Panel -->
+            <div class="control-section blockchain-panel">
+                <h3>⛓️ Blockchain</h3>
+                <div class="wallet-status">
+                    <div class="status-indicator" id="wallet-indicator"></div>
+                    <span id="wallet-status">Not Connected</span>
+                </div>
+                <div class="button-grid">
+                    <button id="btn-connect-wallet" class="accent" onclick="connectWallet()">Connect Wallet</button>
+                    <button id="btn-toggle-logging" class="secondary" onclick="toggleOnChainLogging()" disabled>
+                        <span id="logging-status">Enable Logging</span>
+                    </button>
+                </div>
+                <div id="wallet-address-display" class="wallet-address hidden"></div>
+            </div>
+        </div>
+
+        <!-- Price Chart -->
+        <section class="chart-section glass-card">
+            <h2 style="margin-bottom: 1rem; color: var(--text-primary);">📈 Market Price History</h2>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Agents and Events Grid -->
+        <div class="data-grid">
+            <!-- Agents Table -->
+            <section class="agents-section">
+                <h2>🤖 Autonomous Agents</h2>
+                <div class="scroll-table">
+                    <table id="agents-table">
+                        <thead>
+                            <tr>
+                                <th>Agent ID</th>
+                                <th>Balance</th>
+                                <th>Holdings</th>
+                                <th>Portfolio</th>
+                                <th>P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Events Feed -->
+            <section class="events-section">
+                <h2>📡 Live Event Feed</h2>
+                <div class="scroll-box" id="events-box">
+                    <ul id="events-list">
+                        <!-- Populated dynamically -->
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <!-- Transaction Log (Hidden by default) -->
+        <section id="tx-log-section" class="glass-card hidden" style="margin-top: 1.5rem;">
+            <h2 style="margin-bottom: 1rem; color: var(--text-primary);">🔗 On-Chain Transaction Log</h2>
+            <div class="scroll-box" style="max-height: 250px;">
+                <ul id="tx-list" style="list-style: none; padding: 0; margin: 0;">
+                    <!-- Transactions will appear here -->
+                </ul>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
