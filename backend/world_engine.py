@@ -44,10 +44,11 @@ class MultiWorldEngine:
         creator: str,
         entry_fee: float,
         max_agents: int = 100,
-        rules: Optional[Dict] = None
+        rules: Optional[Dict] = None,
+        world_id: Optional[str] = None
     ) -> str:
         """Create a new simulation world"""
-        world_id = str(uuid.uuid4())[:8]
+        world_id = world_id or str(uuid.uuid4())[:8]
         
         config = WorldConfig(
             world_id=world_id,

@@ -12,9 +12,11 @@ export function useAuralisSocket(onMessage?: (data: any) => void) {
   }, [onMessage]);
 
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host === 'localhost:3000' ? 'localhost:8000' : window.location.host;
-    const socket = new WebSocket(`${protocol}//${host}/ws`);
+    // Use API_BASE_URL to determine WebSocket URL
+    // Replace http:// with ws:// and https:// with wss://
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
+    const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
       console.log('✅ Connected to Auralis WebSocket');

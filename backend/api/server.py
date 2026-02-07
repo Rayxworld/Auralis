@@ -226,7 +226,8 @@ if __name__ == "__main__":
         creator="Auralis",
         entry_fee=10.0,
         max_agents=50,
-        rules={'market_price': 150.0}
+        rules={'market_price': 150.0},
+        world_id="genesis"
     )
     
     world = World(initial_state={
@@ -267,4 +268,30 @@ if __name__ == "__main__":
         print(f"   + Agent joined: {name}")
 
     print(f"✅ Seeding complete. {len(fake_agents)} agents active.")
+
+    # --- Background Random Joining ---
+    async def simulate_traffic():
+        """Simulate random agents joining over time"""
+        extra_names = [
+            "ThetaWhale", "GammaRay", "DeltaForce", "EpsilonEdge", 
+            "ZetaZone", "EtaEffect", "IotaImpulse", "KappaKing",
+            "LambdaLink", "MuMomentum", "NuNetwork", "XiXplorer",
+            "OmicronOrb", "PiPilot", "RhoRider", "SigmaSurfer"
+        ]
+        
+        while True:
+            await asyncio.sleep(random.randint(10, 30)) # Wait 10-30 seconds
+            
+            # Check if we can add more agents
+            world = world_engine.get_world("genesis")
+            if world and len(world['state'].active_agents) < world['config'].max_agents:
+                new_name = random.choice(extra_names) + f"_{random.randint(100, 999)}"
+                agent = SimpleAgent(new_name, initial_balance=random.randint(50, 500))
+                world['simulation'].register_agent(agent)
+                agent.holdings = random.uniform(0.1, 5.0)
+                interaction_engine.initialize_agent_resources(new_name)
+                print(f"   🤖 [Auto-Join] {new_name} entered the simulation.")
+
+    loop.create_task(simulate_traffic())
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
